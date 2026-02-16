@@ -21,7 +21,8 @@ import {
   where,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type Trip = {
   id: string;
@@ -534,7 +535,7 @@ return (
           exit={{ x: "-100%" }}
           transition={{ type: "spring", stiffness: 90, damping: 14 }}
           className={[
-            "fixed left-0 top-0 bottom-[var(--bottom-nav-h)] z-50 w-full",
+            "fixed left-0 top-10 bottom-[var(--bottom-nav-h)] z-50 w-full",
             "lg:top-[var(--nav-h)]",
             expanded ? "lg:w-screen" : "sm:w-[440px]",
             "backdrop-blur-3xl bg-gradient-to-b from-white/10 to-black/40",
@@ -827,13 +828,34 @@ return (
                   <div
                     key={idx}
                     className={[
-                      "max-w-[92%] rounded-2xl px-4 py-3 text-[12px] leading-relaxed border",
+                      "max-w-[92%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed border",
                       m.role === "user"
                         ? "ml-auto bg-sky-500/15 border-sky-400/20 text-slate-100"
                         : "mr-auto bg-white/5 border-white/10 text-slate-100",
                     ].join(" ")}
                   >
-                    {m.content}
+                    {m.role === "assistant" ? (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          strong: ({ children }) => (
+                            <strong className="font-semibold text-white">{children}</strong>
+                          ),
+                          ul: ({ children }) => (
+                            <ul className="list-disc ml-5 space-y-1 mb-2">{children}</ul>
+                          ),
+                          ol: ({ children }) => (
+                            <ol className="list-decimal ml-5 space-y-1 mb-2">{children}</ol>
+                          ),
+                          li: ({ children }) => <li className="text-slate-100">{children}</li>,
+                        }}
+                      >
+                        {m.content}
+                      </ReactMarkdown>
+                    ) : (
+                      m.content
+                    )}
                   </div>
                 ))}
 

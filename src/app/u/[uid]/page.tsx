@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../../lib/firebase";
+import { toggleLikeTrip, shareTrip, loadTripComments, addTripComment } from "../../lib/tripActions";
 import { useAuth } from "../../components/AuthProvider";
 import {
   addDoc,
@@ -89,6 +90,7 @@ export default function UserProfilePage() {
   const [profile, setProfile] = useState<UserDoc | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [activePostId, setActivePostId] = useState<string | null>(null);
+  const [likedByMeActive, setLikedByMeActive] = useState(false);
 
   const [friendCount, setFriendCount] = useState(0);
   const [friendStatus, setFriendStatus] = useState<
@@ -125,6 +127,39 @@ export default function UserProfilePage() {
   const [commentBusy, setCommentBusy] = useState(false);
 
   const [shareToast, setShareToast] = useState<string | null>(null);
+  const [commentToast, setCommentToast] = useState<string | null>(null);
+  const patchTrip = (tripId: string, patch: Partial<Trip>) => {
+    setTrips((prev) => prev.map((t) => (t.id === tripId ? { ...t, ...patch } : t)));
+  };
+
+  const showCommentToast = (msg: string) => {
+    setCommentToast(msg);
+    window.setTimeout(() => setCommentToast(null), 1400);
+  };
+
+  const toggleLike = async (tripId: string) => {
+    if (!user) {
+      window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "login" } }));
+      return;
+    }
+
+    const prevLiked = likedByMeActive;
+    const prevCount = activeTrip?.likeCount ?? 0;
+
+    // optimistic UI
+    setLikedByMeActive(!prevLiked);
+    patchTrip(tripId, { likeCount: Math.max(0, prevCount + (prevLiked ? -1 : 1)) });
+
+    try {
+      await toggleLikeTrip(tripId, user.uid);
+    } catch (e) {
+      console.error("toggleLike failed:", e);
+
+      // rollback
+      setLikedByMeActive(prevLiked);
+      patchTrip(tripId, { likeCount: prevCount });
+    }
+  };
 
   useEffect(() => {
     if (!uid) return;
@@ -206,6 +241,32 @@ export default function UserProfilePage() {
     }
     setActivePostId(focusPostId);
   }, [focusPostId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!activeTrip?.id || !user) {
+        setLikedByMeActive(false);
+        return;
+      }
+
+      try {
+        const likeRef = doc(db, "trips", activeTrip.id, "likes", user.uid);
+        const snap = await getDoc(likeRef);
+        if (!cancelled) setLikedByMeActive(snap.exists());
+      } catch (e) {
+        console.error("Failed to load active like state:", e);
+        if (!cancelled) setLikedByMeActive(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTrip?.id, user]);
+
+  
 
   useEffect(() => {
     if (!user || !uid || user.uid === uid) {
@@ -549,10 +610,22 @@ export default function UserProfilePage() {
 
 
   const addComment = async () => {
-    if (!user || !activeTrip) return;
+    if (!user || !activeTrip) {
+      window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "login" } }));
+      return;
+    }
 
     const text = commentInput.trim();
-    if (!text || commentBusy) return;
+
+    if (!text) {
+      showCommentToast("Type a comment first");
+      return;
+    }
+    if (text.length > 400) {
+      showCommentToast("Comment too long (max 400)");
+      return;
+    }
+    if (commentBusy) return;
 
     setCommentBusy(true);
     setCommentInput("");
@@ -566,6 +639,9 @@ export default function UserProfilePage() {
     };
 
     setComments((prev) => [optimistic, ...prev]);
+
+    const prevCommentCount = activeTrip.commentCount ?? 0;
+    patchTrip(activeTrip.id, { commentCount: prevCommentCount + 1 });
 
     const tripRef = doc(db, "trips", activeTrip.id);
     const commentRef = doc(collection(db, "trips", activeTrip.id, "comments"));
@@ -587,6 +663,7 @@ export default function UserProfilePage() {
         tx.update(tripRef, { commentCount: current + 1 });
       });
 
+      // refresh comments to replace optimistic
       const snap = await getDocs(
         query(
           collection(db, "trips", activeTrip.id, "comments"),
@@ -595,38 +672,81 @@ export default function UserProfilePage() {
         )
       );
       setComments(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+
+      // ✅ success feedback
+      showCommentToast("Posted");
     } catch (e) {
       console.error("addComment failed:", e);
+
+      // rollback optimistic
       setComments((prev) => prev.filter((c) => c.id !== optimistic.id));
+      patchTrip(activeTrip.id, { commentCount: prevCommentCount });
+
+      // restore input
       setCommentInput(text);
+
+      // ✅ error feedback
+      showCommentToast("Failed to post");
     } finally {
       setCommentBusy(false);
     }
   };
 
-
   const sharePost = async (tripId: string) => {
     const url = `${window.location.origin}/u/${uid}?post=${tripId}`;
 
+    let success = false;
+    let toast: string | null = null;
+
     try {
-      if ((navigator as any).share) {
+      if (typeof navigator !== "undefined" && (navigator as any).share) {
         await (navigator as any).share({ url });
-        setShareToast("Shared");
-      } else {
-        await navigator.clipboard.writeText(url);
-        setShareToast("Link copied");
+        success = true;
+        toast = "Shared";
       }
     } catch {
+    }
+
+    if (!success) {
       try {
         await navigator.clipboard.writeText(url);
-        setShareToast("Link copied");
+        success = true;
+        toast = "Link copied";
       } catch {
-        setShareToast("Could not share");
+        try {
+          window.prompt("Copy this link:", url);
+          toast = "Copy link";
+        } catch {
+          toast = "Could not share";
+        }
       }
-    } finally {
-      window.setTimeout(() => setShareToast(null), 1400);
+    }
+
+    setShareToast(toast);
+    window.setTimeout(() => setShareToast(null), 1400);
+
+    if (!success) return;
+
+    // Require login for counting shares (matches SocialPanel)
+    if (!user) {
+      window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "login" } }));
+      return;
+    }
+
+    const prevCount = activeTrip?.shareCount ?? 0;
+
+    // optimistic UI
+    patchTrip(tripId, { shareCount: prevCount + 1 });
+
+    try {
+      await shareTrip(tripId, user.uid);
+    } catch (e) {
+      console.error("shareTrip failed:", e);
+      // rollback
+      patchTrip(tripId, { shareCount: prevCount });
     }
   };
+
 
   const closeModal = () => {
     const url = new URL(window.location.href);
@@ -646,14 +766,21 @@ export default function UserProfilePage() {
       : "User";
 
   return (
-    <div className="min-h-screen bg-black text-white pt-[10px] relative">
-      <div className="mx-auto w-full max-w-6xl px-6">
-        <div className="h-[calc(100vh-70px)] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pt-6 pb-10">
-          <div className="rounded-[2.25rem] border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(0,0,0,0.45)] overflow-hidden">
-            <div className="p-7">
-              <div className="flex flex-col items-center text-center">
-                <div className="relative h-20 w-20 overflow-hidden rounded-full border border-white/15 bg-white/10">
-                  <Image
+   <div className="bg-black text-white relative">
+      <div
+        className="mx-auto w-full max-w-3xl px-6"
+        style={{
+          height: "calc(100vh - var(--nav-h,70px) - var(--bottom-nav-h,64px))",
+          paddingTop: "16px",
+          paddingBottom: "16px",
+        }}
+      >
+        <div className="h-full rounded-[2.25rem] border border-white/10 bg-white/5 shadow-[0_0_60px_rgba(0,0,0,0.45)] overflow-hidden flex flex-col">
+          <div className="h-full overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="shrink-0 p-7 border-b border-white/10">
+            <div className="flex flex-col items-center text-center">
+              <div className="relative h-20 w-20 overflow-hidden rounded-full border border-white/15 bg-white/10">
+              <Image
                     src={avatarUrl}
                     alt={displayName}
                     fill
@@ -818,7 +945,7 @@ export default function UserProfilePage() {
             </div>
 
             <div className="border-t border-white/10" />
-
+          
             <div className="p-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {trips.map((trip) => (
                 <button
@@ -861,138 +988,187 @@ export default function UserProfilePage() {
             </div>
           </div>
         </div>
-      </div>
 
       {activeTrip && (
-        <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4">
-          <div className="absolute inset-0" onClick={closeModal} />
+  <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm">
+    <button
+      type="button"
+      aria-label="Close"
+      className="absolute inset-0"
+      onClick={closeModal}
+    />
 
-          <div className="relative z-[101] w-full max-w-6xl rounded-3xl overflow-hidden border border-white/10 bg-black shadow-2xl">
-            <button
-              onClick={closeModal}
-              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
-            >
-              <X size={18} />
-            </button>
+    {/* Modal */}
+    <div className="relative z-[101] mx-auto w-full max-w-6xl px-3 sm:px-4 pt-6">
+      <div
+        className={[
+          "w-full rounded-3xl overflow-hidden border border-white/10 bg-black shadow-2xl",
+          "flex flex-col",
+          "max-h-[calc(100vh-24px)] md:max-h-[calc(100vh-90px)]",
+        ].join(" ")}
+      >
+        {/* Top bar (mobile friendly) */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 md:hidden">
+          <div className="text-[13px] font-semibold text-white/90 truncate">
+            {activeTrip.cityName}, {activeTrip.countryCode}
+          </div>
+          <button
+            onClick={closeModal}
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2">
-              <div className="relative aspect-square bg-black">
-                {activeTrip.imageUrl ? (
-                  <Image
-                    src={activeTrip.imageUrl}
-                    alt={activeTrip.title}
-                    fill
-                    unoptimized
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-[12px] text-white/50">
-                    No image
+        {/* Desktop close button */}
+        <button
+          onClick={closeModal}
+          className="hidden md:inline-flex absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+        >
+          <X size={18} />
+        </button>
+
+        {/* Content */}
+        <div className="grid grid-cols-1 md:grid-cols-2 flex-1 min-h-0">
+          <div className="relative bg-black h-[34vh] md:h-auto md:aspect-square">
+            {activeTrip.imageUrl ? (
+              <Image
+                src={activeTrip.imageUrl}
+                alt={activeTrip.title}
+                fill
+                unoptimized
+                className="object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-[12px] text-white/50">
+                No image
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+          </div>
+
+          <div className="p-4 sm:p-6 flex flex-col min-h-0">
+            {/* Title + meta */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-base sm:text-lg font-semibold text-white/95 line-clamp-2">
+                  {activeTrip.title}
+                </div>
+                <div className="text-[12px] text-white/65 mt-1">
+                  {activeTrip.cityName}, {activeTrip.countryCode} ·{" "}
+                  {formatDate(activeTrip.createdAt)}
+                </div>
+              </div>
+
+              <div className="flex flex-col items-end gap-2">
+                {shareToast && (
+                  <div className="text-[12px] px-3 py-1.5 rounded-full bg-white/10 text-white/80">
+                    {shareToast}
+                  </div>
+                )}
+                {commentToast && (
+                  <div className="text-[12px] px-3 py-1.5 rounded-full bg-white/10 text-white/80">
+                    {commentToast}
                   </div>
                 )}
               </div>
+            </div>
 
-              <div className="p-6 flex flex-col min-h-[520px]">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-lg font-semibold text-white/95 line-clamp-2">
-                      {activeTrip.title}
-                    </div>
-                    <div className="text-[12px] text-white/65 mt-1">
-                      {activeTrip.cityName}, {activeTrip.countryCode} ·{" "}
-                      {formatDate(activeTrip.createdAt)}
-                    </div>
-                  </div>
+            <div className="mt-3 text-[13px] text-white/85 leading-relaxed break-words whitespace-pre-wrap">
+              {activeTrip.body}
+            </div>
 
-                  {shareToast && (
-                    <div className="text-[12px] px-3 py-1.5 rounded-full bg-white/10 text-white/80">
-                      {shareToast}
-                    </div>
-                  )}
-                </div>
+            {/* Actions */}
+            <div className="mt-4 flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => toggleLike(activeTrip.id)}
+                disabled={!user}
+                className={[
+                  "inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] border transition",
+                  likedByMeActive
+                    ? "bg-pink-500/20 border-pink-400/30 text-pink-200"
+                    : "bg-white/5 border-white/10 text-white/80 hover:text-white hover:bg-white/10",
+                  !user ? "opacity-60 cursor-not-allowed" : "",
+                ].join(" ")}
+                title={user ? "Like" : "Log in to like"}
+              >
+                <Heart size={16} className={likedByMeActive ? "fill-current" : ""} />
+                <span>{activeTrip.likeCount ?? 0}</span>
+              </button>
 
-                <div className="mt-4 text-[13px] text-white/85 leading-relaxed break-words">
-                  {activeTrip.body}
-                </div>
+              <button
+                type="button"
+                onClick={() => sharePost(activeTrip.id)}
+                className="inline-flex items-center gap-2 text-[13px] text-white/80 hover:text-white"
+              >
+                <Share2 size={16} />
+                <span>{activeTrip.shareCount ?? 0}</span>
+              </button>
+            </div>
 
-                <div className="mt-5 flex items-center gap-4">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 text-[13px] text-white/80 hover:text-white"
-                  >
-                    <Heart size={16} />
-                    <span>{activeTrip.likeCount ?? 0}</span>
-                  </button>
+            <div className="mt-4 border-t border-white/10 pt-4 flex-1 min-h-0 flex flex-col">
+              <div className="text-[12px] font-semibold text-white/80 mb-3">
+                Comments
+              </div>
 
-                  <button
-                    type="button"
-                    onClick={() => sharePost(activeTrip.id)}
-                    className="inline-flex items-center gap-2 text-[13px] text-white/80 hover:text-white"
-                  >
-                    <Share2 size={16} />
-                    <span>Share</span>
-                  </button>
-                </div>
-
-                <div className="mt-5 border-t border-white/10 pt-4 flex-1 flex flex-col min-h-0">
-                  <div className="text-[12px] font-semibold text-white/80 mb-3">
-                    Comments
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-3 pr-1">
-                    {commentsLoading ? (
-                      <div className="text-[12px] text-white/55">Loading…</div>
-                    ) : comments.length === 0 ? (
-                      <div className="text-[12px] text-white/55">
-                        No comments yet.
-                      </div>
-                    ) : (
-                      comments.map((c) => (
-                        <div
-                          key={c.id}
-                          className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="text-[11px] text-white/65">
-                              @{c.userId.slice(0, 8)}
-                            </div>
-                            <div className="text-[11px] text-white/45">
-                              {c.createdAt ? formatTime(c.createdAt) : ""}
-                            </div>
-                          </div>
-                          <div className="mt-1 text-[13px] text-white/85 leading-relaxed break-words whitespace-pre-wrap">
-                            {c.body}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-2">
-                    <input
-                      value={commentInput}
-                      onChange={(e) => setCommentInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") addComment();
-                      }}
-                      placeholder={user ? "Write a comment…" : "Log in to comment"}
-                      disabled={!user || commentBusy}
-                      className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-sky-500/40 disabled:opacity-60"
-                    />
-                    <button
-                      onClick={addComment}
-                      disabled={!user || commentBusy || !commentInput.trim()}
-                      className="px-4 py-2 rounded-full bg-sky-500 hover:bg-sky-600 text-sm font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+              <div className="flex-1 min-h-0 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-3 pr-1">
+                {commentsLoading ? (
+                  <div className="text-[12px] text-white/55">Loading…</div>
+                ) : comments.length === 0 ? (
+                  <div className="text-[12px] text-white/55">No comments yet.</div>
+                ) : (
+                  comments.map((c) => (
+                    <div
+                      key={c.id}
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                     >
-                      Send
-                    </button>
-                  </div>
-                </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-[11px] text-white/65">
+                          @{c.userId.slice(0, 8)}
+                        </div>
+                        <div className="text-[11px] text-white/45">
+                          {c.createdAt ? formatTime(c.createdAt) : ""}
+                        </div>
+                      </div>
+                      <div className="mt-1 text-[13px] text-white/85 leading-relaxed break-words whitespace-pre-wrap">
+                        {c.body}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Input row: compact on mobile */}
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  value={commentInput}
+                  onChange={(e) => setCommentInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addComment();
+                  }}
+                  placeholder={user ? "Write a comment…" : "Log in to comment"}
+                  disabled={!user || commentBusy}
+                  className="flex-1 bg-white/5 border border-white/10 rounded-full px-3 py-2 text-[13px] text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-sky-500/40 disabled:opacity-60"
+                />
+                <button
+                  onClick={addComment}
+                  disabled={!user || commentBusy || !commentInput.trim()}
+                  className="px-3 py-2 rounded-full bg-sky-500 hover:bg-sky-600 text-[13px] font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  Send
+                </button>
               </div>
             </div>
           </div>
         </div>
-      )}
+
+        <div className="h-3 md:hidden" />
+      </div>
+    </div>
+  </div>
+)}
+      </div>
     </div>
   );
 }

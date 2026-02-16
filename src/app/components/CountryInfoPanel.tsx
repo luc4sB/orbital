@@ -273,7 +273,7 @@ const dateError =
             transition={{ type: "spring", stiffness: 90, damping: 14 }}
             className={[
               "fixed right-0 z-50 w-full",
-              "top-0 bottom-[var(--bottom-nav-h)]",
+              "top-10 bottom-[var(--bottom-nav-h)]",
               "lg:top-[var(--nav-h)] lg:bottom-[var(--bottom-nav-h)]",
               expanded ? "lg:w-[min(960px,100vw)]" : "sm:w-[440px]",
               "backdrop-blur-3xl bg-gradient-to-b from-white/10 to-black/40 dark:from-zinc-900/70 dark:to-black/60",

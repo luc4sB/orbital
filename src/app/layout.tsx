@@ -321,6 +321,20 @@ export default function RootLayout({
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
 
+  useEffect(() => {
+    const onOpenAuth = (e: Event) => {
+      const ce = e as CustomEvent<{ mode?: "login" | "signup" }>;
+      const mode = ce.detail?.mode ?? "login";
+      setAuthMode(mode);
+      setAuthModalOpen(true);
+    };
+
+    window.addEventListener("open-auth-modal", onOpenAuth as EventListener);
+    return () => {
+      window.removeEventListener("open-auth-modal", onOpenAuth as EventListener);
+    };
+  }, []);
+
   return (
     <html lang="en" className="!scroll-smooth" suppressHydrationWarning>
       <body
@@ -372,11 +386,11 @@ export default function RootLayout({
               onSwitchMode={(m) => setAuthMode(m)}
             />
 
-            <LogoIntro />
-          </ThemeProvider>
-        </AuthProvider>
+                <LogoIntro />
+              <BottomNav />
+            </ThemeProvider>
+          </AuthProvider>
         </Suspense>
-        <BottomNav />
       </body>
     </html>
   );
