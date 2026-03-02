@@ -420,7 +420,16 @@ const dateError =
                       )}
 
                       {showAirportDropdown && filteredAirports.length > 0 && (
-                        <ul className="absolute left-0 right-0 mt-2 glass rounded-xl shadow-lg overflow-hidden z-[9999] max-h-56 overflow-y-auto backdrop-blur-lg scrollbar-hide">
+                        <ul
+                          className="
+                            absolute left-0 right-0 mt-2 z-[9999]
+                            max-h-56 overflow-y-auto scrollbar-hide
+                            rounded-xl shadow-xl overflow-hidden
+                            bg-white/95 border border-zinc-200 text-zinc-900
+                            dark:bg-zinc-900/85 dark:border-white/10 dark:text-zinc-100
+                            backdrop-blur-xl
+                          "
+                        >
                           {filteredAirports.map((a) => (
                             <li
                               key={a.iata_code}
@@ -524,7 +533,16 @@ const dateError =
                     )}
 
                       {showCityDropdown && filteredCities.length > 0 && (
-                        <ul className="absolute left-0 right-0 mt-2 glass rounded-xl shadow-lg overflow-hidden z-[9999] max-h-56 overflow-y-auto backdrop-blur-lg scrollbar-hide">
+                        <ul
+                          className="
+                            absolute left-0 right-0 mt-2 z-[9999]
+                            max-h-56 overflow-y-auto scrollbar-hide
+                            rounded-xl shadow-xl overflow-hidden
+                            bg-white/95 border border-zinc-200 text-zinc-900
+                            dark:bg-zinc-900/85 dark:border-white/10 dark:text-zinc-100
+                            backdrop-blur-xl
+                          "
+                        >
                           {filteredCities.map((city, idx) => (
                             <li
                               key={`${city}-${idx}`}

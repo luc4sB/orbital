@@ -149,7 +149,15 @@ export default function HotelsSearch({
               </p>
             )}
             {showCountryDropdown && filteredCountries.length > 0 && (
-              <ul className="absolute z-[80] mt-2 max-h-48 overflow-y-auto bg-black/70 backdrop-blur-md border border-white/10 rounded-xl shadow-lg text-white">
+              <ul
+                className="
+                  absolute left-0 right-0 z-[80] mt-2 max-h-48 overflow-y-auto
+                  rounded-xl shadow-lg overflow-hidden
+                  bg-white/95 border border-zinc-200 text-zinc-900
+                  dark:bg-black/70 dark:border-white/10 dark:text-white
+                  backdrop-blur-md
+                "
+              >              
                 {filteredCountries.map((c) => (
                   <li
                     key={c}
@@ -193,7 +201,15 @@ export default function HotelsSearch({
               </p>
             )}
             {showCityDropdown && filteredCities.length > 0 && (
-              <ul className="absolute z-[90] mt-2 max-h-48 overflow-y-auto bg-black/70 backdrop-blur-md border border-white/10 rounded-xl shadow-lg text-white">
+              <ul
+                className="
+                  absolute left-0 right-0 z-[90] mt-2 max-h-48 overflow-y-auto
+                  rounded-xl shadow-lg overflow-hidden
+                  bg-white/95 border border-zinc-200 text-zinc-900
+                  dark:bg-black/70 dark:border-white/10 dark:text-white
+                  backdrop-blur-md
+                "
+              >
                 {filteredCities.map((c, i) => (
                   <li
                     key={`${c}-${i}`}

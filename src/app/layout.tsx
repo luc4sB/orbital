@@ -10,7 +10,7 @@ import FlightSearchPanel from "./components/FlightSearchPanel";
 import HotelsSearch from "./components/HotelsSearch";
 import { useState, createContext, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Globe, SlidersHorizontal, MoreVertical, User } from "lucide-react";
+import { Globe, SlidersHorizontal, MoreVertical, HelpCircle, Settings } from "lucide-react";
 import { AuthProvider, useAuth } from "./components/AuthProvider";
 import { signOut } from "firebase/auth";
 import { auth } from "./lib/firebase";
@@ -38,10 +38,11 @@ function Navbar({
   onLoginClick: () => void;
   onSignupClick: () => void;
 }) {
-  const { theme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { user, loading } = useAuth();
   const isDark = theme === "dark";
   const pathname = usePathname();
+  const isGlobePage = pathname === "/";
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -54,16 +55,31 @@ function Navbar({
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
 
+  const [showTutorial, setShowTutorial] = useState(false);
+  
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (!mobileMenuRef.current) return;
-      if (!mobileMenuRef.current.contains(e.target as Node)) {
+      const t = e.target as Node;
+
+      // close mobile menu if click outside
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(t)) {
         setMobileMenuOpen(false);
+      }
+
+      // close settings if click outside
+      if (settingsRef.current && !settingsRef.current.contains(t)) {
+        setSettingsOpen(false);
       }
     };
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMobileMenuOpen(false);
+      if (e.key === "Escape") {
+        setMobileMenuOpen(false);
+        setSettingsOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", onDown);
@@ -105,8 +121,10 @@ function Navbar({
     }
   };
 
-  return (
-    <nav ref={navRef}
+return (
+  <>
+    <nav
+      ref={navRef}
       style={
         {
           backgroundColor: isDark
@@ -172,15 +190,53 @@ function Navbar({
                 ({checkIn} → {checkOut})
               </span>
             </h2>
-          ) : (
-            <div className="w-full [&_.fade-in]:!max-w-full">
-              <SearchBar />
+          ) : isGlobePage ? (
+            <div className="w-full [&_.fade-in]:!max-w-full flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTutorial(true)}
+                className="
+                  shrink-0 w-9 h-9 flex items-center justify-center rounded-full
+                  bg-zinc-200/90 hover:bg-zinc-200 text-zinc-900
+                  dark:bg-white/10 dark:hover:bg-white/20 dark:text-white
+                  transition
+                "
+                aria-label="Help"
+                title="Help"
+              >
+                <HelpCircle size={18} />
+              </button>
+
+              <div className="flex-1">
+                <SearchBar />
+              </div>
             </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="
+                w-full flex items-center justify-center gap-3
+                px-4 py-2 rounded-xl
+                bg-white/10 hover:bg-white/20
+                dark:bg-white/5 dark:hover:bg-white/10
+                transition backdrop-blur-xl
+                text-white
+              "
+              title="Return to Globe"
+            >
+              <img
+                src="/logo.png"
+                alt="Orbital"
+                className="w-8 h-8 object-contain"
+              />
+              <span className="text-sm sm:text-base font-medium text-white">
+                Your next adventure is just around the globe
+              </span>
+            </button>
           )}
         </div>
       </div>
-
-
 
       {/* RIGHT SECTION */}
       <div className="order-2 flex items-center gap-3">
@@ -194,7 +250,6 @@ function Navbar({
           </button>
         ) : (
           <>
-            {/* Desktop links */}
             <button
               type="button"
               onClick={() => window.dispatchEvent(new Event("open-ai-explore"))}
@@ -214,6 +269,7 @@ function Navbar({
             >
               Hotels
             </button>
+
             {/* Mobile 3-dots */}
             <div className="relative md:hidden" ref={mobileMenuRef}>
               <button
@@ -293,21 +349,141 @@ function Navbar({
           </>
         )}
 
-        <button
-          type="button"
-          onClick={() => {
-            if (user) router.push(`/u/${user.uid}`);
-            else onLoginClick();
-          }}
-          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition text-white"
-          aria-label="Account"
-          title={user ? "Profile" : "Log in"}
-        >
-          <User size={18} />
-        </button>
+        {/* Settings dropdown */}
+        <div className="relative" ref={settingsRef}>
+          <button
+            type="button"
+            onClick={() => setSettingsOpen((p) => !p)}
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition text-white"
+            aria-label="Settings"
+            title="Settings"
+          >
+            <Settings size={18} />
+          </button>
+
+          {settingsOpen && (
+            <div
+              className="
+                absolute right-0 mt-2 w-56 overflow-hidden rounded-2xl
+                border border-zinc-200 bg-white/95 text-zinc-900 shadow-xl backdrop-blur-xl
+                dark:border-white/10 dark:bg-black/60 dark:text-white
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setTheme(theme === "dark" ? "light" : "dark");
+                  setSettingsOpen(false);
+                }}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+              >
+                {theme === "dark"
+                  ? "🌙 Dark mode (on) — Toggle"
+                  : "🌞 Light mode (on) — Toggle"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTutorial(true);
+                  setSettingsOpen(false);
+                }}
+                className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+              >
+                Help / Tutorial
+              </button>
+
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    router.push(`/u/${user.uid}`);
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+                >
+                  My profile
+                </button>
+              )}
+
+              <div className="h-px bg-zinc-200/80 dark:bg-white/10" />
+
+              {user ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+                >
+                  Log out
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      onLoginClick();
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+                  >
+                    Log in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      onSignupClick();
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm hover:bg-zinc-100 dark:hover:bg-white/10 transition"
+                  >
+                    Sign up
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </nav>
-  );
+
+    {/* Tutorial modal */}
+    {showTutorial && (
+      <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white text-zinc-900 shadow-2xl border border-zinc-200 dark:bg-zinc-900 dark:text-white dark:border-white/10">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold mb-3">How to Use Orbital</h2>
+
+            <ul className="space-y-2 text-sm">
+              <li>🌍 Drag to rotate the globe, scroll to zoom</li>
+              <li>🔍 Use search to jump to a country</li>
+              <li>✈ Open Flights / 🏨 Hotels to plan trips</li>
+              <li>👥 Social tab to share and interact</li>
+              <li>🤖 Explore for AI travel inspiration</li>
+            </ul>
+
+            <button
+              type="button"
+              onClick={() => setShowTutorial(false)}
+              className="mt-5 w-full rounded-lg py-2 bg-black text-white dark:bg-white dark:text-black"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="absolute inset-0"
+          onClick={() => setShowTutorial(false)}
+          aria-label="Close tutorial"
+        />
+      </div>
+    )}
+  </>
+);
 }
 
 export default function RootLayout({

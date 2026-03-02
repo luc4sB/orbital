@@ -107,6 +107,13 @@ export default function FlightSearchPanel({ onClose }: { onClose: () => void }) 
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
+  const DROPDOWN_UL =
+  "absolute left-0 right-0 mt-2 z-50 max-h-56 overflow-y-auto scrollbar-hide " +
+  "rounded-xl shadow-xl overflow-hidden " +
+  "bg-white/95 border border-zinc-200 text-zinc-900 " +
+  "dark:bg-zinc-900/85 dark:border-white/10 dark:text-zinc-100 " +
+  "backdrop-blur-xl";
+
   return (
     <AnimatePresence>
       <motion.div
@@ -180,7 +187,7 @@ export default function FlightSearchPanel({ onClose }: { onClose: () => void }) 
                 className="w-full px-3 py-2 rounded-xl bg-white/10 border border-gray-400/30 text-gray-100 text-sm focus:ring-2 focus:ring-sky-400 outline-none"
               />
               {showFrom && filteredFrom.length > 0 && (
-                <ul className="absolute left-0 right-0 mt-2 glass rounded-xl shadow-lg overflow-hidden z-50 max-h-56 overflow-y-auto backdrop-blur-lg scrollbar-hide">
+                <ul className={DROPDOWN_UL}>
                   {filteredFrom.map((a) => (
                     <li
                       key={a.iata_code}
@@ -222,8 +229,8 @@ export default function FlightSearchPanel({ onClose }: { onClose: () => void }) 
                 className="w-full px-3 py-2 rounded-xl bg-white/10 border border-gray-400/30 text-gray-100 text-sm focus:ring-2 focus:ring-sky-400 outline-none"
               />
               {showTo && filteredTo.length > 0 && (
-                <ul className="absolute left-0 right-0 mt-2 glass rounded-xl shadow-lg overflow-hidden z-50 max-h-56 overflow-y-auto backdrop-blur-lg scrollbar-hide">
-                  {filteredTo.map((a) => (
+                <ul className={DROPDOWN_UL}>
+                    {filteredTo.map((a) => (
                     <li
                       key={a.iata_code}
                       onClick={() => {

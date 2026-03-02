@@ -112,6 +112,20 @@ useEffect(() => {
       placeholder="Search a country..."
       value={query}
       onChange={(e) => handleChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (suggestions.length > 0) {
+            handleSelect(suggestions[0]);
+          } else {
+            const exact = allCountries.find(
+              (c) => c.name.toLowerCase() === query.trim().toLowerCase()
+            );
+            if (exact) handleSelect(exact);
+          }
+        }
+        if (e.key === "Escape") setSuggestions([]);
+      }}
       className="w-full bg-transparent text-gray-800 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none text-sm"
     />
     <svg
@@ -127,18 +141,29 @@ useEffect(() => {
   </div>
 
   {suggestions.length > 0 && (
-    <ul className="absolute left-0 right-0 mt-2 glass rounded-xl shadow-lg overflow-hidden z-50">
-      {suggestions.map((s) => (
-        <li
-          key={s.name}
-          onClick={() => handleSelect(s)}
-          className="px-4 py-2 cursor-pointer hover:bg-sky-100/70 dark:hover:bg-zinc-700/70 transition text-sm text-gray-800 dark:text-gray-100"
-        >
-          {s.name}
-        </li>
-      ))}
-    </ul>
-  )}
+  <ul
+    className="
+      absolute left-0 right-0 mt-2 z-50 overflow-hidden rounded-xl shadow-lg
+      bg-white/95 text-zinc-900 border border-zinc-200
+      dark:bg-zinc-900/80 dark:text-zinc-100 dark:border-white/10
+      backdrop-blur-2xl
+    "
+  >
+    {suggestions.map((s) => (
+      <li
+        key={s.name}
+        onClick={() => handleSelect(s)}
+        className="
+          px-4 py-2 cursor-pointer text-sm
+          hover:bg-zinc-100 dark:hover:bg-zinc-800/70
+          transition
+        "
+      >
+        {s.name}
+      </li>
+    ))}
+  </ul>
+)}
 </div>
 
   );
