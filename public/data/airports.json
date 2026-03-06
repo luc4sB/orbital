@@ -81,7 +81,7 @@
   { "country": "Finland", "city": "Helsinki", "name": "Helsinki–Vantaa Airport", "iata_code": "HEL" },
   { "country": "Poland", "city": "Warsaw", "name": "Warsaw Chopin Airport", "iata_code": "WAW" },
   { "country": "Poland", "city": "Kraków", "name": "John Paul II International Airport Kraków–Balice", "iata_code": "KRK" },
-  { "country": "Czech Republic", "city": "Prague", "name": "Václav Havel Airport Prague", "iata_code": "PRG" },
+  { "country": "Czechia", "city": "Prague", "name": "Václav Havel Airport Prague", "iata_code": "PRG" },
   { "country": "Hungary", "city": "Budapest", "name": "Budapest Ferenc Liszt International Airport", "iata_code": "BUD" },
   { "country": "Greece", "city": "Athens", "name": "Athens International Airport", "iata_code": "ATH" },
   { "country": "Greece", "city": "Thessaloniki", "name": "Thessaloniki Airport", "iata_code": "SKG" },

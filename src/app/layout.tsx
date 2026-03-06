@@ -197,8 +197,7 @@ return (
                 onClick={() => setShowTutorial(true)}
                 className="
                   shrink-0 w-9 h-9 flex items-center justify-center rounded-full
-                  bg-zinc-200/90 hover:bg-zinc-200 text-zinc-900
-                  dark:bg-white/10 dark:hover:bg-white/20 dark:text-white
+                  bg-black hover:bg-zinc-800 text-white
                   transition
                 "
                 aria-label="Help"
