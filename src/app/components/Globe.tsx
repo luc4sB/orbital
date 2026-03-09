@@ -144,6 +144,12 @@ function RotatingGroup({
   const { camera, size } = useThree();
   const focusSeq = useRef(0);
 
+  const DEFAULT_CAMERA_DIR = useMemo(
+    () => new THREE.Vector3(35, 30, 4).normalize(),
+    []
+  );
+  const DEFAULT_CAMERA_RADIUS = 3.4;
+
 // tween state
 const startRadiusRef = useRef(0);
 
@@ -235,6 +241,39 @@ function computeSearchHitPoint(name: string): THREE.Vector3 | null {
     return zoom;
   }
 
+  useEffect(() => {
+    const resetCamera = () => {
+      const controls = controlsRef.current;
+
+      // stop any active tween
+      t.current = 1;
+      targetRadiusRef.current = null;
+      targetPointRef.current = null;
+
+      const resetPos = DEFAULT_CAMERA_DIR.clone().multiplyScalar(DEFAULT_CAMERA_RADIUS);
+
+      camera.position.copy(resetPos);
+      camera.lookAt(0, 0, 0);
+      camera.updateProjectionMatrix();
+      camera.updateMatrixWorld(true);
+
+      if (controls) {
+        controls.enabled = true;
+        controls.target.set(0, 0, 0);
+
+        if ("autoRotate" in controls) controls.autoRotate = false;
+
+        hardResetOrbitDeltas(controls);
+        controls.update();
+      }
+    };
+
+    window.addEventListener("reset-globe-camera", resetCamera);
+    return () => {
+      window.removeEventListener("reset-globe-camera", resetCamera);
+    };
+  }, [camera, controlsRef, DEFAULT_CAMERA_DIR]);
+  
   /** Focus effect */
 useEffect(() => {
   (async () => {
@@ -429,6 +468,34 @@ export default function Globe() {
   return () => window.removeEventListener("open-ai-explore", openExplore);
 }, []);
 
+  useEffect(() => {
+    const resetGlobeForTutorial = () => {
+      setAiExploreOpen(false);
+      setExpandedPanel(null);
+      setMobilePanel("info");
+      setPanelVisible(false);
+      setSelectedCountry(null);
+      setFocus(null);
+      setIsRotationEnabled(true);
+
+      window.dispatchEvent(new Event("reset-globe-camera"));
+    };
+
+    const closePanelsForTutorial = () => {
+      setAiExploreOpen(false);
+      setExpandedPanel(null);
+      setMobilePanel("info");
+      setPanelVisible(false);
+    };
+
+    window.addEventListener("tutorial-reset-globe", resetGlobeForTutorial);
+    window.addEventListener("tutorial-close-globe-panels", closePanelsForTutorial);
+
+    return () => {
+      window.removeEventListener("tutorial-reset-globe", resetGlobeForTutorial);
+      window.removeEventListener("tutorial-close-globe-panels", closePanelsForTutorial);
+    };
+  }, []);
 
   async function preloadCountryImages(name: string) {
     if (imageCache.has(name)) {
@@ -461,7 +528,7 @@ export default function Globe() {
   }, [selectedCountry]);
 
   return (
-    <div className="relative flex items-center justify-center w-full h-full overflow-hidden">
+    <div className="relative flex items-center justify-center w-full h-full overflow-hidden " data-tutorial="globe">
       <Canvas
         camera={{ position: [35, 30, 4], fov: 45 }}
         gl={{ alpha: true, antialias: true }}
@@ -614,7 +681,7 @@ export default function Globe() {
                   : "text-white/70 hover:bg-white/5",
               ].join(" ")}
             >
-              Info
+              Travel
             </button>
           </div>
         </div>

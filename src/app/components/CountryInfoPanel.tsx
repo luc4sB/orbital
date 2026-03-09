@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Loader2, Plane, Bed } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -31,25 +31,27 @@ export default function CountryInfoPanel({
   expanded = false,
   onToggleExpanded,
 }: Props) {
-
   const [images, setImages] = useState<string[]>(preloadedImages ?? defaultImages);
-  const [mainImage, setMainImage] = useState<string | null>(preloadedImages?.[0] ?? defaultImages[0]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  const thumbnailRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const thumbnailsContainerRef = useRef<HTMLDivElement | null>(null);
 
   const router = useRouter();
 
-  //Airports
+  // Airports
   const [airports, setAirports] = useState<Airport[]>([]);
   const [filteredAirports, setFilteredAirports] = useState<Airport[]>([]);
   const [showAirportDropdown, setShowAirportDropdown] = useState(false);
 
-  //Cities
+  // Cities
   const [cities, setCities] = useState<string[]>([]);
   const [filteredCities, setFilteredCities] = useState<string[]>([]);
   const [showCityDropdown, setShowCityDropdown] = useState(false);
   const [selectedCity, setSelectedCity] = useState("");
 
-  //Form state
+  // Form state
   const [tripType, setTripType] = useState<"oneway" | "return">("oneway");
   const [departAirport, setDepartAirport] = useState("");
   const [departDate, setDepartDate] = useState("");
@@ -60,6 +62,7 @@ export default function CountryInfoPanel({
   const [guests, setGuests] = useState(2);
   const [submitting, setSubmitting] = useState(false);
 
+  const mainImage = images[currentImageIndex] ?? defaultImages[0];
   const isValidCity = cities.includes(selectedCity);
 
   const originAirport = airports.find(
@@ -68,39 +71,60 @@ export default function CountryInfoPanel({
       `${a.city} (${a.iata_code})`.toLowerCase() === departAirport.toLowerCase()
   );
 
-const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = new Date().toISOString().split("T")[0];
 
-const dateError =
-  mode === "flights"
-    ? !departDate
+  const dateError =
+    mode === "flights"
+      ? !departDate
+        ? ""
+        : tripType === "return" && returnDate && returnDate <= departDate
+        ? "Return date must be after departure."
+        : ""
+      : !checkIn || !checkOut
       ? ""
-      : tripType === "return" && returnDate && returnDate <= departDate
-      ? "Return date must be after departure."
-      : ""
-    : !checkIn || !checkOut
-    ? ""
-    : checkOut <= checkIn
-    ? "Check-out must be after check-in."
-    : "";
-  
-    const canSubmit =
-      mode === "flights"
-        ? !!originAirport &&
-          !!departDate &&
-          (tripType === "oneway" || !!returnDate) &&
-          !dateError &&
-          !submitting
-        : isValidCity &&
-          !!checkIn &&
-          !!checkOut &&
-          !dateError &&
-          !submitting;
+      : checkOut <= checkIn
+      ? "Check-out must be after check-in."
+      : "";
+
+  const canSubmit =
+    mode === "flights"
+      ? !!originAirport &&
+        !!departDate &&
+        (tripType === "oneway" || !!returnDate) &&
+        !dateError &&
+        !submitting
+      : isValidCity && !!checkIn && !!checkOut && !dateError && !submitting;
 
   useEffect(() => {
     setSubmitting(false);
   }, [mode, selected]);
 
-  //Load airports + cities
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [images, selected]);
+
+  useEffect(() => {
+    if (!selected || images.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [images, selected]);
+
+  useEffect(() => {
+    const activeThumb = thumbnailRefs.current[currentImageIndex];
+    if (!activeThumb) return;
+
+    activeThumb.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [currentImageIndex]);
+
+  // Load airports + cities
   useEffect(() => {
     fetch("/data/airports.json")
       .then((res) => res.json())
@@ -116,16 +140,87 @@ const dateError =
       .catch(() => setCities([]));
   }, [selected]);
 
-  //Country images
+  useEffect(() => {
+  const clickHotels = () => {
+    setMode("hotels");
+  };
+
+  window.addEventListener("tutorial-click-hotels", clickHotels);
+
+  return () => {
+    window.removeEventListener("tutorial-click-hotels", clickHotels);
+  };
+}, []);
+
+    useEffect(() => {
+    const onFillFlights = (e: Event) => {
+      const detail = (e as CustomEvent<{
+        departAirport?: string;
+        departDate?: string;
+        returnDate?: string;
+      }>).detail;
+
+      setMode("flights");
+      setTripType("return");
+      setShowAirportDropdown(false);
+
+      if (detail?.departAirport) {
+        setDepartAirport(detail.departAirport);
+      }
+
+      if (detail?.departDate) setDepartDate(detail.departDate);
+      if (detail?.returnDate) setReturnDate(detail.returnDate);
+    };
+
+    const onFillHotels = (e: Event) => {
+      const detail = (e as CustomEvent<{
+        city?: string;
+        checkIn?: string;
+        checkOut?: string;
+        guests?: number;
+      }>).detail;
+
+      setMode("hotels");
+      setShowCityDropdown(false);
+
+      if (detail?.city) {
+        setSelectedCity(detail.city);
+      }
+
+      if (detail?.checkIn) setCheckIn(detail.checkIn);
+      if (detail?.checkOut) setCheckOut(detail.checkOut);
+      if (typeof detail?.guests === "number") setGuests(detail.guests);
+    };
+
+    window.addEventListener(
+      "tutorial-country-panel-fill-flights",
+      onFillFlights as EventListener
+    );
+    window.addEventListener(
+      "tutorial-country-panel-fill-hotels",
+      onFillHotels as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "tutorial-country-panel-fill-flights",
+        onFillFlights as EventListener
+      );
+      window.removeEventListener(
+        "tutorial-country-panel-fill-hotels",
+        onFillHotels as EventListener
+      );
+    };
+  }, []);
+
+  // Country images
   useEffect(() => {
     if (!selected) return;
     setLoading(true);
     setImages(defaultImages);
-    setMainImage(defaultImages[0]);
 
     if (preloadedImages?.length) {
       setImages(preloadedImages);
-      setMainImage(preloadedImages[0]);
       setLoading(false);
       return;
     }
@@ -133,7 +228,6 @@ const dateError =
     if (imageCache.has(selected)) {
       const cached = imageCache.get(selected)!;
       setImages(cached);
-      setMainImage(cached[0]);
       setLoading(false);
       return;
     }
@@ -144,16 +238,14 @@ const dateError =
         const urls = d.urls?.length ? d.urls : defaultImages;
         imageCache.set(selected, urls);
         setImages(urls);
-        setMainImage(urls[0]);
       })
       .catch(() => {
         setImages(defaultImages);
-        setMainImage(defaultImages[0]);
       })
       .finally(() => setLoading(false));
-  }, [selected]);
+  }, [selected, preloadedImages]);
 
-  //Airport filtering
+  // Airport filtering
   const handleAirportSearch = (value: string) => {
     setDepartAirport(value);
     if (!value.trim()) {
@@ -188,7 +280,7 @@ const dateError =
     setFilteredCities(filtered.slice(0, 8));
   };
 
-  //Continue buttons
+  // Continue buttons
   const handleContinueFlights = () => {
     if (submitting) return;
     setSubmitting(true);
@@ -317,11 +409,17 @@ const dateError =
               </div>
               {/* Thumbnails */}
               {images.length > 1 && (
-                <div className="p-4 flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+                <div
+                  ref={thumbnailsContainerRef}
+                  className="p-4 flex gap-4 overflow-x-auto snap-x snap-mandatory scrollbar-hide scroll-smooth"
+                >
                   {images.map((src, i) => (
                     <button
                       key={i}
-                      onClick={() => setMainImage(src)}
+                      ref={(el) => {
+                        thumbnailRefs.current[i] = el;
+                      }}
+                      onClick={() => setCurrentImageIndex(i)}
                       className="relative flex-shrink-0 w-[220px] aspect-[16/9] rounded-xl overflow-hidden snap-start"
                     >
                       <Image
@@ -330,7 +428,7 @@ const dateError =
                         fill
                         loading="lazy"
                         className={`object-cover shadow-sm transition-all duration-200 ${
-                          mainImage === src
+                          currentImageIndex === i
                             ? "ring-4 ring-sky-500 scale-[1.02]"
                             : "hover:opacity-90"
                         }`}
@@ -341,12 +439,13 @@ const dateError =
               )}
 
               {/* Main content */}
-              <div className="p-4 space-y-3">
+              <div className="p-4 space-y-3" data-tutorial="country-panel-actions">
                 {/* Mode toggle */}
                 <div className="flex justify-center gap-2 mb-2">
                   <button
                     disabled={submitting}
                     onClick={() => setMode("flights")}
+                    data-tutorial="country-panel-mode-flights"
                     className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
                       mode === "flights"
                         ? "bg-sky-600 text-white shadow-md "
@@ -358,6 +457,7 @@ const dateError =
                   <button
                     disabled={submitting}
                     onClick={() => setMode("hotels")}
+                    data-tutorial="country-panel-mode-hotels"
                     className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
                       mode === "hotels"
                         ? "bg-pink-600 text-white shadow-md "
@@ -370,8 +470,7 @@ const dateError =
 
                 {mode === "flights" && (
                   <>
-                    {/* Trip Type */}
-                    <div className="flex justify-center gap-2 mb-2">
+                    <div className="flex justify-center gap-2 mb-2" data-tutorial="country-panel-flights">
                       <button
                         type="button"
                         disabled={submitting}
@@ -450,7 +549,6 @@ const dateError =
                       )}
                     </div>
 
-                    {/* Dates */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-[20px]">
                       <div>
                         <label className="text-xs text-gray-300 mb-1 block">Departure Date</label>
@@ -459,10 +557,7 @@ const dateError =
                           min={todayStr}
                           value={departDate}
                           onChange={(e) => {
-                            setDepartDate(e.target.value);
-                            if (tripType === "return" && returnDate && returnDate <= e.target.value) {
-                              setReturnDate("");
-                            }
+                            handleDateChange("depart", e.target.value);
                           }}
                           disabled={submitting}
                           className="w-full px-3 py-2 rounded-lg bg-white/10 border border-gray-500/30 text-gray-100 text-sm focus:ring-2 focus:ring-sky-400 outline-none disabled:opacity-60"
@@ -475,7 +570,7 @@ const dateError =
                             type="date"
                             min={departDate || todayStr}
                             value={returnDate}
-                            onChange={(e) => setReturnDate(e.target.value)}
+                            onChange={(e) => handleDateChange("return", e.target.value)}
                             disabled={submitting || !departDate}
                             className="w-full px-3 py-2 rounded-lg bg-white/10 border border-gray-500/30 text-gray-100 text-sm focus:ring-2 focus:ring-sky-400 outline-none disabled:opacity-60"
                           />
@@ -483,9 +578,11 @@ const dateError =
                       )}
                     </div>
 
+                    {dateError && <p className="text-[11px] text-amber-300">{dateError}</p>}
+
                     <button
                       onClick={handleContinueFlights}
-                      disabled={submitting}
+                      disabled={!canSubmit}
                       className="
                         w-full rounded-xl py-3 font-semibold
                         transition-all mt-2
@@ -511,7 +608,7 @@ const dateError =
 
                 {mode === "hotels" && (
                   <>
-                    <div className="relative">
+                    <div className="relative" data-tutorial="country-panel-hotels">
                       <label className="text-xs text-gray-300 mb-1 block">City</label>
                       <div className="glass flex items-center px-4 py-2 rounded-2xl shadow-md focus-within:ring-2 focus-within:ring-pink-400 transition-all">
                         <input
@@ -527,10 +624,10 @@ const dateError =
                       </div>
 
                       {selectedCity && !isValidCity && (
-                      <p className="text-[11px] text-amber-300 mt-1">
-                        Please select a city from the list.
-                      </p>
-                    )}
+                        <p className="text-[11px] text-amber-300 mt-1">
+                          Please select a city from the list.
+                        </p>
+                      )}
 
                       {showCityDropdown && filteredCities.length > 0 && (
                         <ul
@@ -547,7 +644,7 @@ const dateError =
                             <li
                               key={`${city}-${idx}`}
                               onClick={() => {
-                                if (!canSubmit) return;
+                                if (submitting) return;
                                 setSelectedCity(city);
                                 setShowCityDropdown(false);
                               }}
@@ -560,9 +657,8 @@ const dateError =
                       )}
                     </div>
 
-                    {/* Dates + guests */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-[20px]">
-                        <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-[20px]">
+                      <div>
                         <label className="text-xs text-gray-300 mb-1 block">Check-in</label>
                         <input
                           type="date"
@@ -586,6 +682,8 @@ const dateError =
                       </div>
                     </div>
 
+                    {dateError && <p className="text-[11px] text-amber-300">{dateError}</p>}
+
                     <div>
                       <label className="text-xs text-gray-300 mb-1 block">Guests</label>
                       <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-white/10 border border-gray-500/30">
@@ -598,9 +696,7 @@ const dateError =
                           −
                         </button>
 
-                        <span className="text-gray-100 text-sm font-medium">
-                          {guests}
-                        </span>
+                        <span className="text-gray-100 text-sm font-medium">{guests}</span>
 
                         <button
                           type="button"
@@ -615,7 +711,7 @@ const dateError =
 
                     <button
                       onClick={handleContinueHotels}
-                      disabled={submitting}
+                      disabled={!canSubmit}
                       className="
                         w-full rounded-xl py-3 font-semibold
                         transition-all mt-2

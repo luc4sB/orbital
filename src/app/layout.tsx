@@ -17,7 +17,7 @@ import { auth } from "./lib/firebase";
 import AuthModal from "./components/AuthModal";
 import { Suspense } from "react";
 import BottomNav from "./components/BottomNav";
-
+import TutorialOverlay from "./components/TutorialOverlay";
 
 // Share filter state between navbar and HotelResults
 export const FilterContext = createContext<{
@@ -59,6 +59,20 @@ function Navbar({
   
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement | null>(null);
+  const [showGuidedTour, setShowGuidedTour] = useState(false);
+
+  useEffect(() => {
+    const openFlights = () => onFlightsClick();
+    const openHotels = () => onHotelsClick();
+
+    window.addEventListener("tutorial-open-flights", openFlights);
+    window.addEventListener("tutorial-open-hotels", openHotels);
+
+    return () => {
+      window.removeEventListener("tutorial-open-flights", openFlights);
+      window.removeEventListener("tutorial-open-hotels", openHotels);
+    };
+  }, [onFlightsClick, onHotelsClick]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -89,6 +103,28 @@ function Navbar({
       document.removeEventListener("keydown", onKey);
     };
   }, []);
+
+  useEffect(() => {
+
+  const resetApp = () => {
+    router.push("/"); // ensures globe page
+    window.dispatchEvent(new Event("tutorial-close-panels"));
+  };
+
+  const closePanels = () => {
+    window.dispatchEvent(new Event("close-social-panel"));
+    window.dispatchEvent(new Event("close-info-panel"));
+  };
+
+  window.addEventListener("tutorial-reset-app", resetApp);
+  window.addEventListener("tutorial-close-panels", closePanels);
+
+  return () => {
+    window.removeEventListener("tutorial-reset-app", resetApp);
+    window.removeEventListener("tutorial-close-panels", closePanels);
+  };
+
+}, []);
 
   useEffect(() => {
     const el = navRef.current;
@@ -206,7 +242,7 @@ return (
                 <HelpCircle size={18} />
               </button>
 
-              <div className="flex-1">
+              <div className="flex-1" data-tutorial="searchbar">
                 <SearchBar />
               </div>
             </div>
@@ -238,8 +274,7 @@ return (
       </div>
 
       {/* RIGHT SECTION */}
-      <div className="order-2 flex items-center gap-3">
-        {isHotelResults ? (
+        <div className="order-2 flex items-center gap-3" data-tutorial="nav-actions">        {isHotelResults ? (
           <button
             onClick={onToggleFilters}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium shadow-md transition"
@@ -448,39 +483,69 @@ return (
       </div>
     </nav>
 
-    {/* Tutorial modal */}
+    {/* Small tutorial modal */}
     {showTutorial && (
       <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl bg-white text-zinc-900 shadow-2xl border border-zinc-200 dark:bg-zinc-900 dark:text-white dark:border-white/10">
-          <div className="p-6">
-            <h2 className="text-xl font-semibold mb-3">How to Use Orbital</h2>
-
-            <ul className="space-y-2 text-sm">
-              <li>🌍 Drag to rotate the globe, scroll to zoom</li>
-              <li>🔍 Use search to jump to a country</li>
-              <li>✈ Open Flights / 🏨 Hotels to plan trips</li>
-              <li>👥 Social tab to share and interact</li>
-              <li>🤖 Explore for AI travel inspiration</li>
-            </ul>
-
-            <button
-              type="button"
-              onClick={() => setShowTutorial(false)}
-              className="mt-5 w-full rounded-lg py-2 bg-black text-white dark:bg-white dark:text-black"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-
         <button
           type="button"
           className="absolute inset-0"
           onClick={() => setShowTutorial(false)}
           aria-label="Close tutorial"
         />
+
+        <div className="relative z-10 w-full max-w-md rounded-2xl bg-white text-zinc-900 shadow-2xl border border-zinc-200 dark:bg-zinc-900 dark:text-white dark:border-white/10">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold mb-3">How to Use Orbital</h2>
+
+            <ul className="space-y-2 text-sm sm:text-base">
+              <li>🌍 Drag to rotate the globe, scroll to zoom</li>
+              <li>🔍 Search for a country to jump there instantly</li>
+              <li>✈ Use Flights and 🏨 Hotels to plan trips</li>
+              <li>⚙ Open settings to switch theme and reopen help</li>
+            </ul>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowTutorial(false)}
+                className="flex-1 rounded-lg py-2 bg-zinc-200 text-zinc-900 hover:bg-zinc-300 dark:bg-white/10 dark:text-white dark:hover:bg-white/20 transition"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTutorial(false);
+
+                  const startTour = () => {
+                    window.dispatchEvent(new Event("tutorial-reset-globe"));
+                    setTimeout(() => {
+                      setShowGuidedTour(true);
+                    }, 150);
+                  };
+
+                  if (pathname !== "/") {
+                    router.push("/");
+                    setTimeout(startTour, 350);
+                  } else {
+                    startTour();
+                  }
+                }}
+                className="flex-1 rounded-lg py-2 bg-sky-500 hover:bg-sky-600 text-white transition"
+              >
+                Start guided tour
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     )}
+
+    <TutorialOverlay
+      open={showGuidedTour}
+      onClose={() => setShowGuidedTour(false)}
+    />
   </>
 );
 }
