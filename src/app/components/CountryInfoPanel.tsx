@@ -549,7 +549,7 @@ export default function CountryInfoPanel({
                       <div className="glass flex items-center px-4 py-2 rounded-2xl shadow-md focus-within:ring-2 focus-within:ring-sky-400 transition-all">
                         <input
                           type="text"
-                          placeholder="Search airport..."
+                          placeholder="Where are you departing from..."
                           value={departAirport}
                           onChange={(e) => handleAirportSearch(e.target.value)}
                           onFocus={(e) => {

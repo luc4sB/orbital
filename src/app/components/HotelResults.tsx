@@ -147,7 +147,7 @@ export default function HotelResults() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-400">
+      <div className="flex items-center justify-center min-h-screen text-gray-400 scrollbar-hide">
         <Loader2 className="animate-spin mr-2" /> Searching stays...
       </div>
     );
@@ -240,79 +240,100 @@ export default function HotelResults() {
           </p>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredHotels.map((h, i) => (
-              <div
-                key={`${h.name}-${i}`}
-                className="rounded-2xl backdrop-blur-xl bg-white/5 border border-white/10 overflow-hidden hover:border-pink-400/40 hover:shadow-lg hover:shadow-pink-500/10 transition-all duration-300"
-              >
-                <div className="relative w-full aspect-[16/9] bg-white/5 overflow-hidden">
-                  {!h.thumbnail && (
-                    <div className="absolute inset-0 bg-gray-800/50 animate-pulse" />
-                  )}
+            {filteredHotels.map((h, i) => {
+              const clickable = !!h.link;
 
-                  <Image
-                    key={h.thumbnail || `${cityFallbackImage}-${i}`}
-                    src={
-                      h.thumbnail?.startsWith("http")
-                        ? h.thumbnail
-                        : cityFallbackImage
-                    }
-                    alt={h.name}
-                    fill
-                    unoptimized
-                    referrerPolicy="no-referrer"
-                    className="object-cover opacity-0 transition-opacity duration-700"
-                    onLoadingComplete={(img) => img.classList.remove("opacity-0")}
-                    onError={(e) => {
-                      const target = e.currentTarget as HTMLImageElement;
-                      target.src = cityFallbackImage;
-                    }}
-                  />
-                </div>
+              const cardContent = (
+                <>
+                  <div className="relative w-full aspect-[16/9] bg-white/5 overflow-hidden">
+                    {!h.thumbnail && (
+                      <div className="absolute inset-0 bg-gray-800/50 animate-pulse" />
+                    )}
 
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-base font-semibold">{h.name}</h3>
-                      {!!h.amenities?.length && (
-                        <p className="mt-1 text-xs text-white/50 line-clamp-1">
-                          {h.amenities.slice(0, 4).join(" • ")}
-                        </p>
-                      )}
-                    </div>
+                    <Image
+                      key={h.thumbnail || `${cityFallbackImage}-${i}`}
+                      src={
+                        h.thumbnail?.startsWith("http")
+                          ? h.thumbnail
+                          : cityFallbackImage
+                      }
+                      alt={h.name}
+                      fill
+                      unoptimized
+                      referrerPolicy="no-referrer"
+                      className={`object-cover opacity-0 transition-all duration-700 ${
+                        clickable ? "group-hover:scale-[1.02]" : ""
+                      }`}
+                      onLoadingComplete={(img) => img.classList.remove("opacity-0")}
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        target.src = cityFallbackImage;
+                      }}
+                    />
+                  </div>
 
-                    {h.rating && (
-                      <div className="flex items-center gap-1 bg-white/10 rounded-full px-2 py-1">
-                        <Star size={14} className="text-amber-300" />
-                        <span className="text-sm">{h.rating.toFixed(1)}</span>
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-base font-semibold">{h.name}</h3>
+                        {!!h.amenities?.length && (
+                          <p className="mt-1 text-xs text-white/50 line-clamp-1">
+                            {h.amenities.slice(0, 4).join(" • ")}
+                          </p>
+                        )}
                       </div>
-                    )}
-                  </div>
 
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="text-white">
-                      {h.price ? (
-                        <span className="text-lg font-bold">{h.price}</span>
-                      ) : (
-                        <span className="text-white/60">Price unavailable</span>
+                      {h.rating && (
+                        <div className="flex items-center gap-1 bg-white/10 rounded-full px-2 py-1">
+                          <Star size={14} className="text-amber-300" />
+                          <span className="text-sm">{h.rating.toFixed(1)}</span>
+                        </div>
                       )}
-                      <span className="text-xs text-white/50 ml-1">/night</span>
                     </div>
 
-                    {h.link && (
-                      <a
-                        href={h.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block px-4 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-sm font-medium shadow-md"
-                      >
-                        View deal →
-                      </a>
-                    )}
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="text-white">
+                        {h.price ? (
+                          <span className="text-lg font-bold">{h.price}</span>
+                        ) : (
+                          <span className="text-white/60">Price unavailable</span>
+                        )}
+                        <span className="text-xs text-white/50 ml-1">/night</span>
+                      </div>
+
+                      {h.link && (
+                        <div className="inline-block px-4 py-2 rounded-xl bg-pink-500 group-hover:bg-pink-600 text-white text-sm font-medium shadow-md transition">
+                          View deal →
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))}
+                </>
+              );
+
+              if (!clickable) {
+                return (
+                  <div
+                    key={`${h.name}-${i}`}
+                    className="rounded-2xl backdrop-blur-xl bg-white/5 border border-white/10 overflow-hidden hover:border-pink-400/40 hover:shadow-lg hover:shadow-pink-500/10 transition-all duration-300"
+                  >
+                    {cardContent}
+                  </div>
+                );
+              }
+
+              return (
+                <a
+                  key={`${h.name}-${i}`}
+                  href={h.link!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block rounded-2xl backdrop-blur-xl bg-white/5 border border-white/10 overflow-hidden hover:border-pink-400/40 hover:shadow-lg hover:shadow-pink-500/10 transition-all duration-300 hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-pink-500/60"
+                >
+                  {cardContent}
+                </a>
+              );
+            })}
           </div>
         )}
       </div>

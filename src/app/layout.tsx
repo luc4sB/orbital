@@ -578,8 +578,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="!scroll-smooth" suppressHydrationWarning>
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased overflow-x-hidden`}
-        style={{ ["--bottom-nav-h" as any]: "64px", ["--nav-h" as any]: "70px", }as React.CSSProperties}
+        className={`${GeistSans.variable} ${GeistMono.variable} antialiased overflow-x-hidden pb-[var(--bottom-nav-h)]`}
+        style={{ ["--bottom-nav-h" as any]: "64px", ["--nav-h" as any]: "70px" } as React.CSSProperties}
       >
         <Suspense fallback={null}>
         <AuthProvider>

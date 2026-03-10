@@ -64,6 +64,19 @@ export default function Airports({ country }: { country: string }) {
     fetchAirports();
   }, [country]);
 
+  const goToDeals = (iataCode: string) => {
+    const params = new URLSearchParams({
+      origin: depart,
+      destination: iataCode,
+      departDate,
+      ...(tripType === "return" && { returnDate }),
+      tripType,
+      ...(depart && { depart }),
+    });
+
+    router.push(`/flights/results?${params.toString()}`);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-gray-500 dark:text-gray-300">
@@ -85,16 +98,18 @@ export default function Airports({ country }: { country: string }) {
         ) : (
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {airports.map((a, i) => (
-              <div
+              <button
                 key={i}
-                className="rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all"
+                type="button"
+                onClick={() => goToDeals(a.iata_code)}
+                className="group text-left rounded-2xl overflow-hidden shadow-md hover:shadow-xl border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500/60"
               >
                 <div className="relative w-full aspect-[5/3]">
                   <Image
                     src={a.image || "/fallbacks/landscape.jpg"}
                     alt={`${a.city || a.name}`}
                     fill
-                    className="object-cover"
+                    className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                   />
                 </div>
                 <div className="p-4 flex flex-col gap-2">
@@ -108,24 +123,11 @@ export default function Airports({ country }: { country: string }) {
                     IATA: {a.iata_code}
                   </p>
 
-                  <button
-                    onClick={() => {
-                      const params = new URLSearchParams({
-                        origin: depart,
-                        destination: a.iata_code,
-                        departDate,
-                        ...(tripType === "return" && { returnDate }),
-                        tripType,
-                        ...(depart && { depart }),
-                      });
-                      router.push(`/flights/results?${params.toString()}`);
-                    }}
-                    className="mt-3 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition"
-                  >
+                  <div className="mt-3 bg-blue-600 group-hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition text-center">
                     View Deals
-                  </button>
+                  </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
