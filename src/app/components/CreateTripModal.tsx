@@ -158,7 +158,7 @@ export default function CreateTripModal({ open, countryCode, onClose, onCreated 
               value={cityName}
               onChange={(e) => setCityName(e.target.value)}
               className="w-full rounded-xl bg-slate-900/60 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-pink-500/60"
-              placeholder="Madrid"
+              placeholder="City Name"
               maxLength={40}
               disabled={loading}
             />

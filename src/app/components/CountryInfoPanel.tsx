@@ -65,6 +65,13 @@ export default function CountryInfoPanel({
   const mainImage = images[currentImageIndex] ?? defaultImages[0];
   const isValidCity = cities.includes(selectedCity);
 
+  const cityError =
+    !selectedCity
+      ? "Please select a city."
+      : !isValidCity
+      ? "Please select a city from the list."
+      : "";
+
   const originAirport = airports.find(
     (a) =>
       a.iata_code.toLowerCase() === departAirport.toLowerCase() ||
@@ -78,6 +85,18 @@ export default function CountryInfoPanel({
     const day = String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }, []);
+
+  const addDays = (dateStr: string, days: number) => {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+
+  return `${y}-${m}-${d}`;
+};
 
   const dateError = useMemo(() => {
     const today = new Date();
@@ -121,7 +140,7 @@ export default function CountryInfoPanel({
         (tripType === "oneway" || !!returnDate) &&
         !dateError &&
         !submitting
-      : isValidCity && !!checkIn && !!checkOut && !dateError && !submitting;
+      : !cityError && !!checkIn && !!checkOut && !dateError && !submitting;
 
   useEffect(() => {
     setSubmitting(false);
@@ -533,7 +552,12 @@ export default function CountryInfoPanel({
                           placeholder="Search airport..."
                           value={departAirport}
                           onChange={(e) => handleAirportSearch(e.target.value)}
-                          onFocus={() => setShowAirportDropdown(true)}
+                          onFocus={(e) => {
+                            setShowAirportDropdown(true);
+                            setTimeout(() => {
+                              e.target.scrollIntoView({ behavior: "smooth", block: "center" });
+                            }, 300);
+                          }}
                           onBlur={() => setTimeout(() => setShowAirportDropdown(false), 200)}
                           disabled={submitting}
                           className="w-full bg-transparent text-gray-100 placeholder-gray-400 focus:outline-none text-sm disabled:opacity-60"
@@ -651,9 +675,9 @@ export default function CountryInfoPanel({
                         />
                       </div>
 
-                      {selectedCity && !isValidCity && (
+                      {cityError && (
                         <p className="text-[11px] text-amber-300 mt-1">
-                          Please select a city from the list.
+                          {cityError}
                         </p>
                       )}
 
@@ -692,7 +716,21 @@ export default function CountryInfoPanel({
                           type="date"
                           min={todayStr}
                           value={checkIn}
-                          onChange={(e) => setCheckIn(e.target.value)}
+                          onChange={(e) => {
+                            const nextCheckIn = e.target.value;
+                            setCheckIn(nextCheckIn);
+
+                            if (!nextCheckIn) {
+                              setCheckOut("");
+                              return;
+                            }
+
+                            const suggestedCheckOut = addDays(nextCheckIn, 1);
+
+                            if (!checkOut || checkOut <= nextCheckIn) {
+                              setCheckOut(suggestedCheckOut);
+                            }
+                          }}
                           disabled={submitting}
                           className="w-full px-3 py-2 rounded-lg bg-white/10 border border-gray-500/30 text-gray-100 text-sm focus:ring-2 focus:ring-pink-400 outline-none disabled:opacity-60"
                         />

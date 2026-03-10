@@ -65,6 +65,26 @@ export default function HotelsSearch({
       .catch(() => setCities([]));
   }, [country]);
 
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const addDays = (dateStr: string, days: number) => {
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + days);
+
+    const nextYear = date.getFullYear();
+    const nextMonth = String(date.getMonth() + 1).padStart(2, "0");
+    const nextDay = String(date.getDate()).padStart(2, "0");
+
+    return `${nextYear}-${nextMonth}-${nextDay}`;
+  };
+
   const dateError = useMemo(() => {
     if (!checkIn || !checkOut) return "";
     const today = new Date();
@@ -232,11 +252,22 @@ export default function HotelsSearch({
               <label className="block text-[11px] text-white/70 mb-1">Check-in</label>
               <input
                 type="date"
-                min={new Date().toISOString().split("T")[0]}
+                min={todayStr}
                 value={checkIn}
                 onChange={(e) => {
-                  setCheckIn(e.target.value);
-                  if (checkOut && e.target.value > checkOut) setCheckOut("");
+                  const nextCheckIn = e.target.value;
+                  setCheckIn(nextCheckIn);
+
+                  if (!nextCheckIn) {
+                    setCheckOut("");
+                    return;
+                  }
+
+                  const suggestedCheckOut = addDays(nextCheckIn, 1);
+
+                  if (!checkOut || checkOut <= nextCheckIn) {
+                    setCheckOut(suggestedCheckOut);
+                  }
                 }}
                 className="w-full bg-white/10 border border-white/15 rounded-xl text-white px-3 py-2 focus:ring-2 focus:ring-pink-400 outline-none"
               />
@@ -245,7 +276,7 @@ export default function HotelsSearch({
               <label className="block text-[11px] text-white/70 mb-1">Check-out</label>
               <input
                 type="date"
-                min={checkIn || new Date().toISOString().split("T")[0]}
+                min={checkIn || todayStr}
                 value={checkOut}
                 onChange={(e) => setCheckOut(e.target.value)}
                 className="w-full bg-white/10 border border-white/15 rounded-xl text-white px-3 py-2 focus:ring-2 focus:ring-pink-400 outline-none"

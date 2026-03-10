@@ -41,6 +41,7 @@ export default function HotelResults() {
   const [filteredHotels, setFilteredHotels] = useState<Hotel[]>([]);
   const [loading, setLoading] = useState(true);
   const [cityFallbackImage, setCityFallbackImage] = useState<string>("/fallbacks/landscape.jpg");
+  const [filtersDismissed, setFiltersDismissed] = useState(false);
 
   const city = sp.get("city") || "";
   const checkIn = sp.get("checkIn") || "";
@@ -51,19 +52,16 @@ export default function HotelResults() {
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
 
-  //Fetch hotels
   useEffect(() => {
     if (!city || !checkIn || !checkOut) return;
 
     const fetchHotels = async () => {
       setLoading(true);
       try {
-        //Fetch city fallback
         const cityImgRes = await fetch(`/api/hotelImages?city=${encodeURIComponent(city)}`);
         const cityImgData = await cityImgRes.json();
         setCityFallbackImage(cityImgData.urls?.[0] || "/fallbacks/landscape.jpg");
 
-        // Fetch actual hotels
         const res = await fetch("/api/hotels", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -89,12 +87,14 @@ export default function HotelResults() {
     fetchHotels();
   }, [city, checkIn, checkOut, adults]);
 
-  //Filters
   useEffect(() => {
     let filtered = [...hotels];
-    if (minRating)
+
+    if (minRating) {
       filtered = filtered.filter((h) => (h.rating ?? 0) >= minRating);
-    if (maxPrice)
+    }
+
+    if (maxPrice) {
       filtered = filtered.filter((h) => {
         const price =
           typeof h.price === "string"
@@ -102,14 +102,24 @@ export default function HotelResults() {
             : h.price ?? 0;
         return price <= maxPrice;
       });
-    if (selectedAmenities.length > 0)
+    }
+
+    if (selectedAmenities.length > 0) {
       filtered = filtered.filter((h) =>
         selectedAmenities.every((a) =>
           h.amenities?.some((ha) => ha.toLowerCase().includes(a.toLowerCase()))
         )
       );
+    }
+
     setFilteredHotels(filtered);
   }, [minRating, maxPrice, selectedAmenities, hotels]);
+
+  useEffect(() => {
+    if (!showFilters) {
+      setFiltersDismissed(false);
+    }
+  }, [showFilters]);
 
   const toggleAmenity = (a: string) => {
     setSelectedAmenities((prev) =>
@@ -117,9 +127,15 @@ export default function HotelResults() {
     );
   };
 
-  //Preload thumbnails
+  const clearAllFilters = () => {
+    setMinRating(null);
+    setMaxPrice(null);
+    setSelectedAmenities([]);
+  };
+
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     filteredHotels.forEach((h) => {
       if (h.thumbnail?.startsWith("http")) {
         const img = new window.Image();
@@ -129,67 +145,94 @@ export default function HotelResults() {
     });
   }, [filteredHotels]);
 
-  if (loading)
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen text-gray-400">
         <Loader2 className="animate-spin mr-2" /> Searching stays...
       </div>
     );
+  }
+
+  const filtersVisible = showFilters && !filtersDismissed;
 
   return (
-    <main className="min-h-screen  scrollbar-hide w-full bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-gray-100 overflow-y-auto">
-      {/* Filter bar */}
-      {showFilters && (
-        <div className="fixed top-[70px] left-0 w-full z-40 bg-black/70 backdrop-blur-lg border-b border-white/10 px-8 py-4 flex flex-wrap gap-4 justify-center animate-fade-in-down">
-          <select
-            value={minRating ?? ""}
-            onChange={(e) =>
-              setMinRating(e.target.value ? Number(e.target.value) : null)
-            }
-            className="bg-zinc-900 text-gray-200 text-sm px-3 py-2 rounded-lg border border-gray-600/50"
-          >
-            <option value="">Min Rating</option>
-            {[1, 2, 3, 4, 4.5].map((r) => (
-              <option key={r} value={r}>
-                {r}★
-              </option>
-            ))}
-          </select>
+    <main className="min-h-screen scrollbar-hide w-full bg-gradient-to-b from-zinc-950 via-zinc-900 to-black text-gray-100 overflow-y-auto">
+      {filtersVisible && (
+        <div className="fixed top-[70px] left-0 w-full z-40 bg-black/70 backdrop-blur-lg border-b border-white/10 px-4 sm:px-8 py-4 animate-fade-in-down">
+          <div className="max-w-7xl mx-auto flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-medium text-white/90">Filters</h2>
 
-          <select
-            value={maxPrice ?? ""}
-            onChange={(e) =>
-              setMaxPrice(e.target.value ? Number(e.target.value) : null)
-            }
-            className="bg-zinc-900 text-gray-200 text-sm px-3 py-2 rounded-lg border border-gray-600/50"
-          >
-            <option value="">Max Price (£)</option>
-            {[50, 100, 150, 200].map((p) => (
-              <option key={p} value={p}>
-                £{p}
-              </option>
-            ))}
-          </select>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="px-3 py-1.5 text-xs rounded-full border border-white/15 text-white/80 hover:bg-white/10 transition"
+                >
+                  Clear all
+                </button>
 
-          <div className="flex flex-wrap gap-2 justify-center">
-            {KNOWN_AMENITIES.map((a) => (
-              <button
-                key={a}
-                onClick={() => toggleAmenity(a)}
-                className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
-                  selectedAmenities.includes(a)
-                    ? "bg-pink-500 border-pink-400 text-white"
-                    : "border-gray-600 text-gray-300 hover:bg-pink-500/20"
-                }`}
+                <button
+                  type="button"
+                  onClick={() => setFiltersDismissed(true)}
+                  className="px-3 py-1.5 text-xs rounded-full border border-white/15 text-white/80 hover:bg-white/10 transition"
+                >
+                  Hide filters
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-4 justify-center">
+              <select
+                value={minRating ?? ""}
+                onChange={(e) =>
+                  setMinRating(e.target.value ? Number(e.target.value) : null)
+                }
+                className="bg-zinc-900 text-gray-200 text-sm px-3 py-2 rounded-lg border border-gray-600/50"
               >
-                {a}
-              </button>
-            ))}
+                <option value="">Min Rating</option>
+                {[1, 2, 3, 4, 4.5].map((r) => (
+                  <option key={r} value={r}>
+                    {r}★
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={maxPrice ?? ""}
+                onChange={(e) =>
+                  setMaxPrice(e.target.value ? Number(e.target.value) : null)
+                }
+                className="bg-zinc-900 text-gray-200 text-sm px-3 py-2 rounded-lg border border-gray-600/50"
+              >
+                <option value="">Max Price (£)</option>
+                {[50, 100, 150, 200].map((p) => (
+                  <option key={p} value={p}>
+                    £{p}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex flex-wrap gap-2 justify-center">
+                {KNOWN_AMENITIES.map((a) => (
+                  <button
+                    key={a}
+                    onClick={() => toggleAmenity(a)}
+                    className={`px-3 py-1.5 text-xs rounded-full border transition-all ${
+                      selectedAmenities.includes(a)
+                        ? "bg-pink-500 border-pink-400 text-white"
+                        : "border-gray-600 text-gray-300 hover:bg-pink-500/20"
+                    }`}
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Hotel grid */}
       <div className="max-w-7xl mx-auto px-6 py-24 space-y-8">
         {filteredHotels.length === 0 ? (
           <p className="text-center text-gray-400">
