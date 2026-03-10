@@ -1,8 +1,9 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Bot, LayoutGrid, Globe2, MessageCircle, User } from "lucide-react";
+import { Bot, LayoutGrid, Globe2, MessageCircle, User, Loader2 } from "lucide-react";
 import { useAuth } from "./AuthProvider";
+import { useState, useEffect } from "react";
 
 type Item = {
   key: "ai" | "posts" | "globe" | "messages" | "profile";
@@ -29,6 +30,12 @@ export default function BottomNav() {
   const router = useRouter();
   const { user } = useAuth();
 
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoadingKey(null);
+  }, [pathname]);
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-[80]">
       <div className="w-full border-t border-white/10 bg-black/35 backdrop-blur-xl">
@@ -36,24 +43,36 @@ export default function BottomNav() {
           <div className="grid grid-cols-5 items-center py-2">
             {items.map(({ key, label, href, Icon }) => {
               const active = isActive(pathname, href);
+              const loading = loadingKey === key;
 
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => {
+                    if (loading) return;
+
                     if (key === "profile") {
-                      if (user) router.push(`/u/${user.uid}`);
-                      else {
+                      if (!user) {
                         window.dispatchEvent(
                           new CustomEvent("open-auth-modal", {
                             detail: { mode: "login" },
                           })
                         );
+                        return;
                       }
+
+                      const target = `/u/${user.uid}`;
+                      if (pathname === target) return;
+
+                      setLoadingKey(key);
+                      router.push(target);
                       return;
                     }
 
+                    if (isActive(pathname, href)) return;
+
+                    setLoadingKey(key);
                     router.push(href);
                   }}
                   className={[
@@ -64,7 +83,11 @@ export default function BottomNav() {
                   ].join(" ")}
                   aria-current={active ? "page" : undefined}
                 >
-                  <Icon size={18} />
+                  {loading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Icon size={18} />
+                  )}
                   <span className="leading-none">{label}</span>
                 </button>
               );

@@ -1,9 +1,10 @@
 "use client";
 
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Html, useProgress } from "@react-three/drei";
 import { TextureLoader, SRGBColorSpace, Group } from "three";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import * as THREE from "three";
 
 import CountryBorders from "./CountryBorders";
@@ -273,7 +274,7 @@ function computeSearchHitPoint(name: string): THREE.Vector3 | null {
       window.removeEventListener("reset-globe-camera", resetCamera);
     };
   }, [camera, controlsRef, DEFAULT_CAMERA_DIR]);
-  
+
   /** Focus effect */
 useEffect(() => {
   (async () => {
@@ -396,7 +397,20 @@ useFrame((_, delta) => {
     </group>
   );
 }
+function GlobeLoader() {
+  const { active } = useProgress();
 
+  if (!active) return null;
+
+  return (
+    <Html center>
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-black/55 px-5 py-4 backdrop-blur-xl">
+        <Loader2 className="animate-spin text-white" size={22} />
+        <div className="text-sm font-medium text-white">Loading globe…</div>
+      </div>
+    </Html>
+  );
+}
 /** ---------- Globe (parent) ---------- */
 export default function Globe() {
   const [isDark, setIsDark] = useState(false);
@@ -540,7 +554,7 @@ export default function Globe() {
       >
         <ambientLight intensity={isDark ? 8.4 : 4.5} />
 
-        <Suspense fallback={null}>
+        <Suspense fallback={<GlobeLoader />}>
           <RotatingGroup
             isDark={isDark}
             isRotationEnabled={isRotationEnabled}

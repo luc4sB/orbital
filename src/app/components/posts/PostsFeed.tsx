@@ -13,11 +13,12 @@ import {
   DocumentData,
 } from "firebase/firestore";
 import { db } from "../../lib/firebase";
-import { Loader2, SlidersHorizontal, X } from "lucide-react";
+import { Loader2, PenSquare, SlidersHorizontal, X } from "lucide-react";
 import PostCard from "./PostCard";
 import PostModal from "./PostModal";
 import { useAuth } from "../AuthProvider";
 import { getCountryToContinentMap } from "../../lib/countryContinent";
+import CreateTripModal from "../CreateTripModal";
 
 export type Trip = {
   id: string;
@@ -71,6 +72,7 @@ export default function PostsFeed() {
   const lastDocRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
 
   const [selected, setSelected] = useState<Trip | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -265,16 +267,33 @@ export default function PostsFeed() {
   return (
     <>
       <div className="px-5 sm:px-6 pt-5 pb-3 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg sm:text-xl font-semibold text-white/90">Posts</h1>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-lg sm:text-xl font-semibold text-white/90">Posts</h1>
 
-          <div className="ml-auto flex items-center gap-2 relative" ref={filtersRef}>
-            <div className="flex items-center rounded-full border border-white/10 bg-white/5 p-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (!user) {
+                  window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { mode: "login" } }));
+                  return;
+                }
+                setCreateOpen(true);
+              }}
+              className="px-2.5 py-2 rounded-xl text-sm border border-white/10 bg-pink-500/90 text-white hover:bg-pink-500 transition inline-flex items-center gap-2 shrink-0 w-fit"
+            >
+              <PenSquare size={14} />
+              Share
+            </button>
+          </div>
+
+          <div className="flex w-full items-center justify-between gap-2 relative" ref={filtersRef}>
+            <div className="flex items-center rounded-full border border-white/10 bg-white/5 p-1 min-w-0">
               <button
                 type="button"
                 onClick={() => setSort("newest")}
                 className={[
-                  "px-3 py-1 rounded-full text-xs font-semibold transition",
+                  "px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold transition",
                   sort === "newest" ? "bg-white/15 text-white" : "text-white/70 hover:text-white",
                 ].join(" ")}
               >
@@ -284,7 +303,7 @@ export default function PostsFeed() {
                 type="button"
                 onClick={() => setSort("popular")}
                 className={[
-                  "px-3 py-1 rounded-full text-xs font-semibold transition",
+                  "px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold transition",
                   sort === "popular" ? "bg-white/15 text-white" : "text-white/70 hover:text-white",
                 ].join(" ")}
               >
@@ -294,7 +313,7 @@ export default function PostsFeed() {
                 type="button"
                 onClick={() => setSort("hot")}
                 className={[
-                  "px-3 py-1 rounded-full text-xs font-semibold transition",
+                  "px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-semibold transition",
                   sort === "hot" ? "bg-white/15 text-white" : "text-white/70 hover:text-white",
                 ].join(" ")}
               >
@@ -306,7 +325,7 @@ export default function PostsFeed() {
               type="button"
               onClick={() => setFiltersOpen((p) => !p)}
               className={[
-                "px-3 py-1.5 rounded-full text-xs font-semibold border transition inline-flex items-center gap-2",
+                "px-3 py-1.5 rounded-full text-xs font-semibold border transition inline-flex items-center gap-2 shrink-0",
                 anyFilters
                   ? "bg-sky-500/20 border-sky-400/30 text-sky-200"
                   : "bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10",
@@ -447,6 +466,11 @@ export default function PostsFeed() {
         )}
       </div>
 
+      <CreateTripModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={() => setCreateOpen(false)}
+      />
       <PostModal open={!!selected} trip={selected} onClose={() => setSelected(null)} />
     </>
   );
