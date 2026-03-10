@@ -105,8 +105,14 @@ export default function FlightSearchPanel({ onClose }: { onClose: () => void }) 
     onClose();
   };
 
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
-
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+  
   const DROPDOWN_UL =
   "absolute left-0 right-0 mt-2 z-50 max-h-56 overflow-y-auto scrollbar-hide " +
   "rounded-xl shadow-xl overflow-hidden " +

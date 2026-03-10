@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { X, Loader2, Plane, Bed } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -71,20 +71,48 @@ export default function CountryInfoPanel({
       `${a.city} (${a.iata_code})`.toLowerCase() === departAirport.toLowerCase()
   );
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
 
-  const dateError =
-    mode === "flights"
-      ? !departDate
-        ? ""
-        : tripType === "return" && returnDate && returnDate <= departDate
-        ? "Return date must be after departure."
-        : ""
-      : !checkIn || !checkOut
-      ? ""
-      : checkOut <= checkIn
-      ? "Check-out must be after check-in."
-      : "";
+  const dateError = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const parseDate = (value: string) => {
+      const [year, month, day] = value.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    };
+
+    if (mode === "flights") {
+      if (!departDate) return "";
+
+      const depart = parseDate(departDate);
+      if (depart < today) return "Departure date cannot be in the past.";
+
+      if (tripType === "return") {
+        if (!returnDate) return "";
+        const ret = parseDate(returnDate);
+        if (ret <= depart) return "Return date must be after departure.";
+      }
+
+      return "";
+    }
+
+    if (!checkIn || !checkOut) return "";
+
+    const inDate = parseDate(checkIn);
+    const outDate = parseDate(checkOut);
+
+    if (inDate < today) return "Check-in date cannot be in the past.";
+    if (outDate <= inDate) return "Check-out must be after check-in.";
+
+    return "";
+  }, [mode, tripType, departDate, returnDate, checkIn, checkOut]);
 
   const canSubmit =
     mode === "flights"
