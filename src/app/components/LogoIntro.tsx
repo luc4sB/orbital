@@ -7,11 +7,14 @@ export default function LogoIntro() {
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
-    const duration = 5250; //animation duration (ms)
+    const duration = 5250;
     const fadeTime = 700;
 
     const timer1 = setTimeout(() => setFadeOut(true), duration);
-    const timer2 = setTimeout(() => setHidden(true), duration + fadeTime);
+    const timer2 = setTimeout(() => {
+      setHidden(true);
+      window.dispatchEvent(new Event("orbital-logo-intro-finished"));
+    }, duration + fadeTime);
 
     return () => {
       clearTimeout(timer1);
@@ -26,9 +29,7 @@ export default function LogoIntro() {
       className={`fixed inset-0 z-[9999] flex items-center justify-center transition-opacity duration-700 ${
         fadeOut ? "opacity-0" : "opacity-100"
       }`}
-      style={{
-        background: "black",
-      }}
+      style={{ background: "black" }}
     >
       <video
         src="/logo-intro2.mp4"

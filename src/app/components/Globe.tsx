@@ -397,16 +397,18 @@ useFrame((_, delta) => {
     </group>
   );
 }
-function GlobeLoader() {
+function GlobeLoader({ show }: { show: boolean }) {
   const { active } = useProgress();
 
-  if (!active) return null;
+  if (!show || !active) return null;
 
   return (
     <Html center>
       <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-black/55 px-5 py-4 backdrop-blur-xl">
         <Loader2 className="animate-spin text-white" size={22} />
-        <div className="text-sm font-medium text-white">Loading globe…</div>
+        <div className="whitespace-nowrap text-xs sm:text-sm font-medium text-white">
+          Loading globe…
+        </div>
       </div>
     </Html>
   );
@@ -428,6 +430,16 @@ export default function Globe() {
   const [createTripOpen, setCreateTripOpen] = useState(false);
   const [tripsRefreshKey, setTripsRefreshKey] = useState(0);
 
+  const [logoIntroFinished, setLogoIntroFinished] = useState(false);
+  useEffect(() => {
+  const handleIntroFinished = () => setLogoIntroFinished(true);
+
+  window.addEventListener("orbital-logo-intro-finished", handleIntroFinished);
+
+  return () => {
+    window.removeEventListener("orbital-logo-intro-finished", handleIntroFinished);
+  };
+}, []);
   // Detect dark mode changes
   useEffect(() => {
     const update = () => setIsDark(document.documentElement.classList.contains("dark"));
@@ -554,8 +566,7 @@ export default function Globe() {
       >
         <ambientLight intensity={isDark ? 8.4 : 4.5} />
 
-        <Suspense fallback={<GlobeLoader />}>
-          <RotatingGroup
+          <Suspense fallback={<GlobeLoader show={logoIntroFinished} />}>          <RotatingGroup
             isDark={isDark}
             isRotationEnabled={isRotationEnabled}
             onCountrySelect={(name, hitPoint) => {

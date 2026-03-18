@@ -33,12 +33,26 @@ type Props = {
 };
 
 const DEFAULT_SPOT: SpotState = { mode: "none" };
+const STEP_LOCK_MS = 1000;
 
 export default function TutorialOverlay({ open, onClose }: Props) {
   const [stepIndex, setStepIndex] = useState(0);
   const [bookingChoice, setBookingChoice] = useState<"flights" | "hotels" | null>(null);
   const [spot, setSpot] = useState<SpotState>(DEFAULT_SPOT);
+  const [stepLocked, setStepLocked] = useState(false);
+
   const actionTimer = useRef<number | null>(null);
+  const stepLockTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  function lockStepTemporarily(ms = STEP_LOCK_MS) {
+    setStepLocked(true);
+
+    if (stepLockTimerRef.current) clearTimeout(stepLockTimerRef.current);
+
+    stepLockTimerRef.current = setTimeout(() => {
+      setStepLocked(false);
+    }, ms);
+  }
 
   const steps: Step[] = useMemo(() => {
     const base: Step[] = [
@@ -103,13 +117,13 @@ export default function TutorialOverlay({ open, onClose }: Props) {
     ];
 
     if (bookingChoice === "flights") {
-        base.push({
-            id: "flights-explain",
-            text: "Flights lets you choose a trip type, departure airport, and travel dates before viewing airport and route options for this country.",
-            target: "[data-tutorial='country-panel-mode-flights']",
-            shape: "rounded",
-            padding: 8,
-        });
+      base.push({
+        id: "flights-explain",
+        text: "Flights lets you choose a trip type, departure airport, and travel dates before viewing airport and route options for this country.",
+        target: "[data-tutorial='country-panel-mode-flights']",
+        shape: "rounded",
+        padding: 8,
+      });
     }
 
     if (bookingChoice === "hotels") {
@@ -129,7 +143,7 @@ export default function TutorialOverlay({ open, onClose }: Props) {
           setTimeout(() => {
             window.dispatchEvent(new Event("tutorial-refresh-spotlight"));
           }, 220);
-        }
+        },
       });
     }
 
@@ -145,10 +159,19 @@ export default function TutorialOverlay({ open, onClose }: Props) {
   }, [bookingChoice]);
 
   useEffect(() => {
+    return () => {
+      if (stepLockTimerRef.current) clearTimeout(stepLockTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!open) {
       setStepIndex(0);
       setBookingChoice(null);
       setSpot(DEFAULT_SPOT);
+      setStepLocked(false);
+
+      if (stepLockTimerRef.current) clearTimeout(stepLockTimerRef.current);
       return;
     }
 
@@ -156,12 +179,12 @@ export default function TutorialOverlay({ open, onClose }: Props) {
   }, [open]);
 
   useEffect(() => {
-  if (!open) return;
+    if (!open) return;
 
-  if (stepIndex >= steps.length) {
-    setStepIndex(Math.max(0, steps.length - 1));
-  }
-}, [open, stepIndex, steps.length]);
+    if (stepIndex >= steps.length) {
+      setStepIndex(Math.max(0, steps.length - 1));
+    }
+  }, [open, stepIndex, steps.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -218,7 +241,7 @@ export default function TutorialOverlay({ open, onClose }: Props) {
       });
     };
 
-        const refreshSpot = () => {
+    const refreshSpot = () => {
       requestAnimationFrame(() => {
         updateSpot();
       });
@@ -260,6 +283,48 @@ export default function TutorialOverlay({ open, onClose }: Props) {
 
   const step = steps[stepIndex];
   const isLast = stepIndex === steps.length - 1;
+
+  const handleBack = () => {
+    if (stepLocked || stepIndex <= 0) return;
+    lockStepTemporarily();
+    setStepIndex((s) => s - 1);
+  };
+
+  const handleNext = () => {
+    if (stepLocked) return;
+
+    if (isLast) {
+      onClose();
+      return;
+    }
+
+    const currentStep = steps[stepIndex];
+    const nextStep = steps[stepIndex + 1];
+
+    const shouldResetBeforeSearch =
+      currentStep?.id === "globe-italy" && nextStep?.id === "search-intro";
+
+    lockStepTemporarily();
+
+    if (shouldResetBeforeSearch) {
+      window.dispatchEvent(new Event("tutorial-reset-globe"));
+
+      setTimeout(() => {
+        setStepIndex((s) => s + 1);
+      }, 250);
+
+      return;
+    }
+
+    setStepIndex((s) => s + 1);
+  };
+
+  const handleBookingChoice = (choice: "flights" | "hotels") => {
+    if (stepLocked) return;
+    lockStepTemporarily();
+    setBookingChoice(choice);
+    setStepIndex((s) => s + 1);
+  };
 
   return (
     <div className="fixed inset-0 z-[9999]">
@@ -309,22 +374,18 @@ export default function TutorialOverlay({ open, onClose }: Props) {
             <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setBookingChoice("flights");
-                  setStepIndex((s) => s + 1);
-                }}
-                className="rounded-xl px-4 py-3 bg-sky-500 hover:bg-sky-600 text-white transition"
+                disabled={stepLocked}
+                onClick={() => handleBookingChoice("flights")}
+                className="rounded-xl px-4 py-3 bg-sky-500 hover:bg-sky-600 text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Tell me about Flights
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  setBookingChoice("hotels");
-                  setStepIndex((s) => s + 1);
-                }}
-                className="rounded-xl px-4 py-3 bg-pink-500 hover:bg-pink-600 text-white transition"
+                disabled={stepLocked}
+                onClick={() => handleBookingChoice("hotels")}
+                className="rounded-xl px-4 py-3 bg-pink-500 hover:bg-pink-600 text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Tell me about Hotels
               </button>
@@ -344,8 +405,9 @@ export default function TutorialOverlay({ open, onClose }: Props) {
               {stepIndex > 0 && (
                 <button
                   type="button"
-                  onClick={() => setStepIndex((s) => s - 1)}
-                  className="rounded-lg px-3 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/20 transition"
+                  disabled={stepLocked}
+                  onClick={handleBack}
+                  className="rounded-lg px-3 py-2 text-sm bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Back
                 </button>
@@ -354,31 +416,9 @@ export default function TutorialOverlay({ open, onClose }: Props) {
               {!step.choice && (
                 <button
                   type="button"
-onClick={() => {
-  if (isLast) {
-    onClose();
-    return;
-  }
-
-  const currentStep = steps[stepIndex];
-  const nextStep = steps[stepIndex + 1];
-
-  const shouldResetBeforeSearch =
-    currentStep?.id === "globe-italy" && nextStep?.id === "search-intro";
-
-  if (shouldResetBeforeSearch) {
-    window.dispatchEvent(new Event("tutorial-reset-globe"));
-
-    setTimeout(() => {
-      setStepIndex((s) => s + 1);
-    }, 250);
-
-    return;
-  }
-
-  setStepIndex((s) => s + 1);
-}}
-                  className="rounded-lg px-4 py-2 text-sm bg-sky-500 hover:bg-sky-600 text-white transition"
+                  disabled={stepLocked}
+                  onClick={handleNext}
+                  className="rounded-lg px-4 py-2 text-sm bg-sky-500 hover:bg-sky-600 text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLast ? "Finish" : "Next"}
                 </button>
