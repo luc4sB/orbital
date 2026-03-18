@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Orbital
+
+Orbital is an interactive travel exploration web app built around a 3D globe. Users can rotate the globe, select countries, explore destination information, compare flights and hotels, and use social / AI-assisted discovery features.
+
+## Live Demo
+https://orbital-explore.vercel.app
+
+## Features
+- Interactive 3D globe
+- Country search and focus transitions
+- Country information panel
+- Flights and hotels exploration
+- Social / AI explore panel
+- Guided tutorial overlay
+- Responsive mobile and desktop experience
+
+## Tech Stack
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- React Three Fiber / Drei
+- Firebase
+- External travel / image APIs
 
 ## Getting Started
-
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
+## Environment Variables
+### Create a .env.local file and add your own keys for:
+    NEXT_PUBLIC_FIREBASE_API_KEY=
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+    NEXT_PUBLIC_FIREBASE_APP_ID=
+    NEXT_PUBLIC_PEXELS_KEY=
+    SERPAPI_KEY=
+    AVIATIONSTACK_KEY=
+    GEMINI_API_KEY=
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Screenshots
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The Orbital Globe
+![Globe Image](image.png)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Selecting a country
+![Country Image](image-1.png)
 
-## Learn More
+Selecting an Airport
+![Airports](image-6.png)
 
-To learn more about Next.js, take a look at the following resources:
+Viewing Flights
+![Flights](image-7.png)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Viewing Hotels
+![Hotels](image-8.png)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Chatting to AI
+![AI Conversation](image-2.png)
 
-## Deploy on Vercel
+Viewing Posts
+![Posts Feed](image-3.png)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Chatting to friends
+![Chat View](image-4.png)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Viewing Profile
+![Profile Display](image-5.png)
+
+## Dissertation Context
+This project was developed focusing on making travel discovery more interactive, exploratory, and visually engaging through a globe-based interface.
